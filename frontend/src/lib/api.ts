@@ -21,17 +21,38 @@ export class ApiError extends Error {
 export const api = {
   // Profile management
   async getProfiles(): Promise<Profile[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
+    console.log('API: getProfiles called');
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    if (error) {
-      throw new ApiError(`Failed to fetch profiles: ${error.message}`, 500)
+      console.log('API: Raw profiles data:', data);
+
+      if (error) {
+        console.error('API: Error fetching profiles:', error);
+        throw new ApiError(`Failed to fetch profiles: ${error.message}`, 500)
+      }
+
+      // Validate and parse the response with try/catch for each profile
+      const parsedProfiles = [];
+      for (const profile of data) {
+        try {
+          const parsed = ProfileSchema.parse(profile);
+          parsedProfiles.push(parsed);
+        } catch (parseError) {
+          console.error('API: Error parsing profile:', profile, parseError);
+          // Skip this profile instead of failing the entire request
+        }
+      }
+      
+      console.log('API: Parsed profiles:', parsedProfiles);
+      return parsedProfiles;
+    } catch (e) {
+      console.error('API: Unexpected error in getProfiles:', e);
+      throw e;
     }
-
-    // Validate and parse the response
-    return data.map(profile => ProfileSchema.parse(profile))
   },
 
   async getProfile(id: string): Promise<Profile> {
@@ -70,7 +91,17 @@ export const api = {
       throw new ApiError('Authentication required', 401)
     }
 
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/enrich-profile`, {
+    // Get environment variables safely
+    const supabaseUrl = typeof import.meta.env !== 'undefined' ? 
+      import.meta.env.VITE_SUPABASE_URL as string : '';
+    const supabaseAnonKey = typeof import.meta.env !== 'undefined' ? 
+      import.meta.env.VITE_SUPABASE_ANON_KEY as string : '';
+    
+    if (!supabaseUrl) {
+      throw new ApiError('Missing VITE_SUPABASE_URL environment variable', 500);
+    }
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/enrich-profile`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

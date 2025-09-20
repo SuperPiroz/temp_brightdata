@@ -18,20 +18,57 @@ import {
 
 const ProfileRow: React.FC<{ profile: Profile }> = ({ profile }) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [renderError, setRenderError] = useState<string | null>(null)
 
-  const extractedData = profile.enriched_data as ExtractedFields | null
+  // Handle enriched_data as either an object or an array
+  let extractedData: ExtractedFields | null = null
+  try {
+    if (profile.enriched_data) {
+      console.log('Processing profile enriched_data:', 
+        typeof profile.enriched_data, 
+        Array.isArray(profile.enriched_data) ? 'is array' : 'not array'
+      );
+      
+      // If it's an array, use the first item if available
+      if (Array.isArray(profile.enriched_data) && profile.enriched_data.length > 0) {
+        extractedData = profile.enriched_data[0] as ExtractedFields
+      } else {
+        extractedData = profile.enriched_data as ExtractedFields
+      }
+    }
+  } catch (err) {
+    console.error('Error processing enriched_data:', err);
+    setRenderError(`Error processing enriched data: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   const getSummary = () => {
     if (!extractedData) return null
     
-    return {
-      experience_count: extractedData.experience?.length || 0,
-      education_count: extractedData.education?.length || 0,
-      skills_count: extractedData.skills?.length || 0
+    try {
+      return {
+        experience_count: Array.isArray(extractedData.experience) ? extractedData.experience.length : 0,
+        education_count: Array.isArray(extractedData.education) ? extractedData.education.length : 0,
+        skills_count: Array.isArray(extractedData.skills) ? extractedData.skills.length : 0
+      }
+    } catch (err) {
+      console.error('Error in getSummary:', err);
+      setRenderError(`Error getting profile summary: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
     }
   }
 
   const summary = getSummary()
+
+  // Display error if there's a rendering issue
+  if (renderError) {
+    return (
+      <tr className="border-b hover:bg-gray-50">
+        <td colSpan={5} className="px-4 py-3 text-red-600">
+          Error rendering profile: {renderError}
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <>
@@ -71,7 +108,9 @@ const ProfileRow: React.FC<{ profile: Profile }> = ({ profile }) => {
             {extractedData?.current_company && (
               <div className="text-sm text-gray-600 flex items-center gap-1">
                 <Building className="h-3 w-3" />
-                {extractedData.current_company}
+                {typeof extractedData.current_company === 'object' && extractedData.current_company !== null ? 
+                  (extractedData.current_company as any).name || 'Unknown Company' : 
+                  String(extractedData.current_company)}
               </div>
             )}
           </div>
@@ -119,128 +158,156 @@ const ProfileRow: React.FC<{ profile: Profile }> = ({ profile }) => {
         </td>
       </tr>
       
-      {isExpanded && extractedData && (
-        <tr>
-          <td colSpan={5} className="px-4 py-4 bg-gray-50">
-            <div className="space-y-4">
-              {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                    <User className="h-4 w-4" />
-                    Contact Information
-                  </h4>
-                  <div className="space-y-1 text-sm">
-                    {extractedData.email && (
-                      <div>Email: <span className="text-blue-600">{extractedData.email}</span></div>
-                    )}
-                    {extractedData.phone && (
-                      <div>Phone: {extractedData.phone}</div>
-                    )}
-                    {extractedData.location && (
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {extractedData.location}
+      {isExpanded && extractedData && (() => {
+        try {
+          return (
+            <tr>
+              <td colSpan={5} className="px-4 py-4 bg-gray-50">
+                <div className="space-y-4">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Contact Information
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        {extractedData.email && (
+                          <div>Email: <span className="text-blue-600">{extractedData.email}</span></div>
+                        )}
+                        {extractedData.phone && (
+                          <div>Phone: {extractedData.phone}</div>
+                        )}
+                        {extractedData.location && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {extractedData.location}
+                          </div>
+                        )}
+                        {extractedData.connections_count && (
+                          <div>Connections: {extractedData.connections_count.toLocaleString()}</div>
+                        )}
                       </div>
-                    )}
-                    {extractedData.connections_count && (
-                      <div>Connections: {extractedData.connections_count.toLocaleString()}</div>
-                    )}
-                  </div>
-                </div>
-                
-                {extractedData.skills && extractedData.skills.length > 0 && (
-                  <div>
-                    <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                      <Award className="h-4 w-4" />
-                      Skills ({extractedData.skills.length})
-                    </h4>
-                    <div className="flex flex-wrap gap-1">
-                      {extractedData.skills.slice(0, 10).map((skill, index) => (
-                        <span 
-                          key={index}
-                          className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                      {extractedData.skills.length > 10 && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
-                          +{extractedData.skills.length - 10} more
-                        </span>
-                      )}
                     </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Experience */}
-              {extractedData.experience && extractedData.experience.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                    <Briefcase className="h-4 w-4" />
-                    Experience ({extractedData.experience.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {extractedData.experience.slice(0, 3).map((exp, index) => (
-                      <div key={index} className="border-l-2 border-blue-200 pl-3">
-                        <div className="font-medium">{exp.title}</div>
-                        <div className="text-sm text-gray-600">{exp.company}</div>
-                        {(exp.start_date || exp.end_date) && (
-                          <div className="text-xs text-gray-500">
-                            {exp.start_date} - {exp.end_date || 'Present'}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    {extractedData.experience.length > 3 && (
-                      <div className="text-sm text-gray-500">
-                        +{extractedData.experience.length - 3} more positions
+                    
+                    {extractedData.skills && Array.isArray(extractedData.skills) && extractedData.skills.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                          <Award className="h-4 w-4" />
+                          Skills ({extractedData.skills.length})
+                        </h4>
+                        <div className="flex flex-wrap gap-1">
+                          {extractedData.skills.slice(0, 10).map((skill, index) => (
+                            <span 
+                              key={index}
+                              className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                          {extractedData.skills.length > 10 && (
+                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                              +{extractedData.skills.length - 10} more
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-              
-              {/* Education */}
-              {extractedData.education && extractedData.education.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4" />
-                    Education ({extractedData.education.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {extractedData.education.map((edu, index) => (
-                      <div key={index} className="border-l-2 border-green-200 pl-3">
-                        <div className="font-medium">{edu.school}</div>
-                        {edu.degree && (
-                          <div className="text-sm text-gray-600">{edu.degree}</div>
-                        )}
-                        {edu.field && (
-                          <div className="text-sm text-gray-600">{edu.field}</div>
-                        )}
-                        {(edu.start_date || edu.end_date) && (
-                          <div className="text-xs text-gray-500">
-                            {edu.start_date} - {edu.end_date}
+                  
+                  {/* Experience */}
+                  {extractedData.experience && Array.isArray(extractedData.experience) && extractedData.experience.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                        <Briefcase className="h-4 w-4" />
+                        Experience ({extractedData.experience.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {extractedData.experience.slice(0, 3).map((exp, index) => (
+                          <div key={index} className="border-l-2 border-blue-200 pl-3">
+                            <div className="font-medium">{exp.title}</div>
+                            <div className="text-sm text-gray-600">
+                              {typeof exp.company === 'object' && exp.company !== null ? 
+                                (exp.company as any).name || 'Unknown Company' : 
+                                String(exp.company)}
+                            </div>
+                            {(exp.start_date || exp.end_date) && (
+                              <div className="text-xs text-gray-500">
+                                {exp.start_date} - {exp.end_date || 'Present'}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {extractedData.experience.length > 3 && (
+                          <div className="text-sm text-gray-500">
+                            +{extractedData.experience.length - 3} more positions
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+                  
+                  {/* Education */}
+                  {extractedData.education && Array.isArray(extractedData.education) && extractedData.education.length > 0 && (
+                    <div>
+                      <h4 className="font-medium text-gray-900 mb-2 flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4" />
+                        Education ({extractedData.education.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {extractedData.education.map((edu, index) => (
+                          <div key={index} className="border-l-2 border-green-200 pl-3">
+                            <div className="font-medium">{edu.school}</div>
+                            {edu.degree && (
+                              <div className="text-sm text-gray-600">{edu.degree}</div>
+                            )}
+                            {edu.field && (
+                              <div className="text-sm text-gray-600">{edu.field}</div>
+                            )}
+                            {(edu.start_date || edu.end_date) && (
+                              <div className="text-xs text-gray-500">
+                                {edu.start_date} - {edu.end_date}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </td>
-        </tr>
-      )}
+              </td>
+            </tr>
+          );
+        } catch (err) {
+          console.error('Error rendering expanded profile view:', err);
+          return (
+            <tr>
+              <td colSpan={5} className="px-4 py-3 text-red-600">
+                Error rendering expanded profile data: {err instanceof Error ? err.message : String(err)}
+              </td>
+            </tr>
+          );
+        }
+      })()}
     </>
   )
 }
 
 export const Profiles: React.FC = () => {
+  console.log('Profiles component rendering');
   const { data: profiles, isLoading, error } = useQuery({
     queryKey: ['profiles'],
-    queryFn: api.getProfiles,
+    queryFn: async () => {
+      console.log('Fetching profiles...');
+      try {
+        const result = await api.getProfiles();
+        console.log('Profiles fetched successfully:', result);
+        return result;
+      } catch (err) {
+        console.error('Error fetching profiles:', err);
+        throw err;
+      }
+    },
     refetchInterval: 5000, // Refetch every 5 seconds to catch status updates
   })
 

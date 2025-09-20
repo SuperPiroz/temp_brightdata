@@ -6,26 +6,26 @@ export const ProfileSchema = z.object({
   name: z.string().nullable(),
   title: z.string().nullable(),
   linkedin_url: z.string().url(),
-  enriched_data: z.record(z.any()).nullable(),
+  enriched_data: z.union([z.record(z.any()), z.array(z.any())]).nullable(),
   enriched_provider: z.string().nullable(),
   enriched_status: z.enum(['never', 'pending', 'processing', 'success', 'failed']),
-  enriched_at: z.string().datetime().nullable(),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
+  enriched_at: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
 })
 
 export const EnrichmentJobSchema = z.object({
   id: z.string().uuid(),
   profile_id: z.string().uuid(),
   provider: z.string(),
-  requested_at: z.string().datetime(),
-  started_at: z.string().datetime().nullable(),
-  finished_at: z.string().datetime().nullable(),
+  requested_at: z.string(),
+  started_at: z.string().nullable(),
+  finished_at: z.string().nullable(),
   status: z.enum(['queued', 'running', 'success', 'failed']),
   request_payload_summary: z.string().nullable(),
   response_payload_excerpt: z.string().nullable(),
   error_message: z.string().nullable(),
-  created_at: z.string().datetime(),
+  created_at: z.string(),
 })
 
 export const ExtractedFieldsSchema = z.object({
@@ -81,7 +81,7 @@ export const EnrichmentResponseSchema = z.object({
     education_count: z.number(),
     skills_count: z.number(),
   }).optional(),
-  enriched_at: z.string().datetime().optional(),
+  enriched_at: z.string().optional(),
   processing_time_ms: z.number().optional(),
   error: z.string().optional(),
   message: z.string().optional(),

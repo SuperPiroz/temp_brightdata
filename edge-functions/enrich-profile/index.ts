@@ -58,21 +58,34 @@ interface ExtractedFields {
 async function enrichProfileWithBrightData(linkedinUrl: string): Promise<BrightDataResponse> {
   const brightDataApiKey = Deno.env.get('BRIGHTDATA_API_KEY')
   const brightDataBaseUrl = Deno.env.get('BRIGHTDATA_BASE_URL') || 'https://api.brightdata.com'
-  const brightDataCollectorId = Deno.env.get('BRIGHTDATA_COLLECTOR_ID') || 'linkedin-profile'
+  const brightDataCollectorId = Deno.env.get('BRIGHTDATA_COLLECTOR_ID')
+  const brightDataAuthScheme = (Deno.env.get('BRIGHTDATA_AUTH_SCHEME') || 'Bearer').trim()
+  const brightDataTriggerUrl = Deno.env.get('BRIGHTDATA_TRIGGER_URL')
   
   if (!brightDataApiKey) {
     throw new Error('BRIGHTDATA_API_KEY not configured')
   }
+  if (!brightDataCollectorId || brightDataCollectorId === 'linkedin-profile') {
+    throw new Error('BRIGHTDATA_COLLECTOR_ID not configured. Set it to your actual Bright Data collector/dataset ID.')
+  }
 
-  const requestPayload = {
+  // Build request payload. Some Bright Data endpoints require dataset_id in body
+  // when the trigger URL is generic (e.g., /datasets/v3/trigger), while others
+  // include the ID in the path (/datasets/v3/{id}/trigger).
+  const includeIdInBody = !!brightDataTriggerUrl && !brightDataTriggerUrl.includes(brightDataCollectorId!)
+  const requestPayload: Record<string, any> = {
     url: linkedinUrl,
     format: 'json'
   }
+  if (includeIdInBody) {
+    requestPayload.dataset_id = brightDataCollectorId
+  }
 
-  const response = await fetch(`${brightDataBaseUrl}/datasets/v3/${brightDataCollectorId}/trigger`, {
+  const triggerUrl = brightDataTriggerUrl || `${brightDataBaseUrl}/datasets/v3/${brightDataCollectorId}/trigger`
+  const response = await fetch(triggerUrl, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${brightDataApiKey}`,
+      'Authorization': `${brightDataAuthScheme} ${brightDataApiKey}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(requestPayload)
@@ -134,7 +147,7 @@ serve(async (req) => {
   try {
     // Initialize Supabase client with service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY')!
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 

@@ -8,6 +8,7 @@ En automatiserad rekryteringstjänst som hjälper företag att hitta, kontakta o
 - **Backend**: Supabase (PostgreSQL + Auth + Edge Functions)
 - **Data Enrichment**: Bright Data API för LinkedIn-profiler
 - **Säkerhet**: Row Level Security (RLS) policies
+- **Datahantering**: Robust felhantering för olika dataformat från Bright Data API
 
 ## 📁 Projektstruktur
 
@@ -196,6 +197,7 @@ curl -X POST \
 - [x] Felhantering och retry-logik
 - [x] Audit logging av alla körningar
 - [x] Real-time uppdateringar via React Query
+- [x] Robust datahantering för olika API-svarsformat (objekt eller array)
 
 ### 🔄 Planerat (Skalning)
 - [ ] Batch-enrichment av flera profiler
@@ -224,6 +226,10 @@ supabase functions logs enrich-profile
 - Kontrollera CORS-inställningar
 - Verifiera Supabase URL och anon key
 - Kontrollera nätverksflikar i DevTools
+
+**Problem med dataformat:**
+- Applikationen hanterar nu både objekt och array-format från Bright Data API
+- Om du ser felmeddelanden om "Objects are not valid as React child", kontrollera att alla objekt konverteras till strängar i UI-koden
 
 ### Testning
 
